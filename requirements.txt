@@ -1,0 +1,2 @@
+# Only required to render plots. The experiment and tests use the standard library.
+matplotlib>=3.8,<4
