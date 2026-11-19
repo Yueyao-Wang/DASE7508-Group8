@@ -1,0 +1,4 @@
+evidence,condition,trials,replay_tasks,immediate_math_rate,incident_success_rate,UMR,TSR,chinese_accuracy,RCR,LPL,lost_progress,eligible_progress
+scripted_simulation,C0,36,144,0.0,0.0,0.0,1.0,1.0,0.0,0.0,0,144
+scripted_simulation,C1,36,144,0.3333333333333333,0.6666666666666666,0.6666666666666666,0.3333333333333333,1.0,0.6666666666666666,0.0,0,144
+scripted_simulation,C2,36,144,0.3333333333333333,0.6666666666666666,0.0,1.0,1.0,0.0,1.0,144,144
