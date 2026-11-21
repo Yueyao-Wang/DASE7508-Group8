@@ -245,6 +245,59 @@ def evaluate(store, model, seed, pre, delay, replay, valid, metadata):
         "poison_at_evaluation_start": int(POISON in boundary["memory"]),
     }
 
+def run_c4_extension(args, attacks):
+    """Run the separate C2/C4 experiment using the original CLI settings."""
+    import subprocess
+    import sys
+
+    script = Path(__file__).resolve().with_name("run_replay_recovery.py")
+    status_path = args.out / "c4_extension_status.json"
+    status = {
+        "status": "running",
+        "completed_attacks": [],
+        "model": args.model,
+        "prompt_version": "v2",
+    }
+    write_json(status_path, status)
+
+    try:
+        for attack in attacks:
+            status["current_attack"] = attack
+            write_json(status_path, status)
+
+            command = [
+                sys.executable, str(script),
+                "--mode", "real",
+                "--model", args.model,
+                "--attack", attack,
+                "--pre", str(args.pre),
+                "--delay", str(args.delay),
+                "--repeats", str(args.repeats),
+                "--eval-tasks", str(args.replay),
+                "--seed", str(args.seed),
+                "--timeout", str(args.timeout),
+                "--out", str(args.out / "c4_extension" / attack),
+            ]
+
+            print(f"Starting C4 extension: {attack}", flush=True)
+            subprocess.run(command, check=True)
+
+            status["completed_attacks"].append(attack)
+            write_json(status_path, status)
+
+    except Exception as error:
+        write_json(status_path, {
+            **status,
+            "status": "failed",
+            "error": f"{type(error).__name__}: {error}",
+        })
+        raise
+
+    write_json(status_path, {**status, "status": "complete"})
+    print(
+        f"C4 extension complete: {args.out / 'c4_extension'}",
+        flush=True,
+    )
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -260,7 +313,25 @@ def main():
     parser.add_argument("--memory-ablation", action="store_true",
                         help="Add C3, removing only the poisoned memory rule")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--with-c4",
+        action="store_true",
+        help="Run the separate C2/C4 recovery-redo experiment afterward",
+    )
+
     args = parser.parse_args()
+
+    if args.with_c4:
+        if args.prompt_version != "v2":
+            parser.error("--with-c4 requires --prompt-version v2")
+
+        c4_script = Path(__file__).resolve().with_name(
+            "run_replay_recovery.py"
+        )
+        if not c4_script.is_file():
+            parser.error(
+                "Place run_replay_recovery.py beside run_real_agent.py"
+            )
     if min(args.repeats, args.replay, args.timeout) < 1 or args.out.exists():
         parser.error("Use positive counts and a new --out directory")
     args.out.mkdir(parents=True)
@@ -334,7 +405,8 @@ def main():
         raise
     write_json(manifest_path, {**manifest, "status": "complete", "trials": len(rows)})
     print(f"Completed {len(rows)} trials. Results in {args.out}")
-
+    if args.with_c4:
+        run_c4_extension(args, attacks)
 
 if __name__ == "__main__":
     main()
